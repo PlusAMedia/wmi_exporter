@@ -19,11 +19,35 @@ func init() {
 	Factories["process"] = NewProcessCollector
 }
 
+const (
+	defaultProcessDetails = "start_time,cpu_time_total,io_bytes_total, private_bytes, thread_count,virtual_bytes"
+	// all possible values: start_time,cpu_time_total,handle_count,io_bytes_total, io_operations_total, page_fault_total, page_file_bytes,pool_bytes, priority_base,private_bytes, thread_count,virtual_bytes,working_set"
+)
+
 var (
 	processWhereClause = kingpin.Flag(
 		"collector.process.processes-where",
 		"WQL 'where' clause to use in WMI metrics query. Limits the response to the processes you specify and reduces the size of the response.",
 	).Default("").String()
+
+	processDetails = kingpin.Flag(
+		"process.details",
+		"Comma-separated list of process details. Valid only when process collector is enabled",
+	).Default(defaultProcessDetails).String()
+
+	doStarTime          = true
+	doCpuTimeTotal      = true
+	doHandleCount       = false
+	doIoBytesTotal      = true
+	doIoOperationsTotal = false
+	doPageFaultTotal    = false
+	doPageFileBytes     = false
+	doPoolBytes         = false
+	doPriorityBase      = false
+	doPrivateBytes      = true
+	doThreadCount       = true
+	doVirtualBytes      = true
+	doWorkingSet        = false
 )
 
 // A ProcessCollector is a Prometheus collector for WMI Win32_PerfRawData_PerfProc_Process metrics
@@ -48,6 +72,10 @@ type ProcessCollector struct {
 // NewProcessCollector ...
 func NewProcessCollector() (Collector, error) {
 	const subsystem = "process"
+
+	if *processDetails != "" {
+		GetProcessDetailFlags()
+	}
 
 	if *processWhereClause == "" {
 		log.Warn("No where-clause specified for process collector. This will generate a very large number of metrics!")
@@ -136,6 +164,29 @@ func NewProcessCollector() (Collector, error) {
 	}, nil
 }
 
+func GetProcessDetailFlags() {
+	var detailsArray = strings.Split(*processDetails, ",")
+	set := make(map[string]struct{}, len(detailsArray))
+	for _, item := range detailsArray {
+		set[item] = struct{}{}
+	}
+
+	_, doStarTime = set["start_time"]
+	_, doCpuTimeTotal = set["cpu_time_total"]
+	_, doHandleCount = set["handle_count"]
+	_, doIoBytesTotal = set["io_bytes_total"]
+	_, doIoOperationsTotal = set["io_operations_total"]
+	_, doPageFaultTotal = set["page_fault_total"]
+	_, doPageFileBytes = set["page_file_bytes"]
+	_, doPoolBytes = set["pool_bytes"]
+	_, doPriorityBase = set["priority_base"]
+	_, doPrivateBytes = set["private_bytes"]
+	_, doVirtualBytes = set["virtual_bytes"]
+	_, doThreadCount = set["thread_count"]
+	_, doWorkingSet = set["working_set"]
+
+}
+
 // Collect sends the metric values for each metric
 // to the provided prometheus Metric channel.
 func (c *ProcessCollector) Collect(ch chan<- prometheus.Metric) error {
@@ -213,187 +264,214 @@ func (c *ProcessCollector) collect(ch chan<- prometheus.Metric) (*prometheus.Des
 			}
 		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.StartTime,
-			prometheus.GaugeValue,
-			// convert from Windows timestamp (1 jan 1601) to unix timestamp (1 jan 1970)
-			float64(process.ElapsedTime-116444736000000000)/float64(process.Frequency_Object),
-			processName,
-			pid,
-			cpid,
-		)
+		if doStarTime {
+			ch <- prometheus.MustNewConstMetric(
+				c.StartTime,
+				prometheus.GaugeValue,
+				// convert from Windows timestamp (1 jan 1601) to unix timestamp (1 jan 1970)
+				float64(process.ElapsedTime-116444736000000000)/float64(process.Frequency_Object),
+				processName,
+				pid,
+				cpid,
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.HandleCount,
-			prometheus.GaugeValue,
-			float64(process.HandleCount),
-			processName,
-			pid,
-			cpid,
-		)
+		if doHandleCount {
+			ch <- prometheus.MustNewConstMetric(
+				c.HandleCount,
+				prometheus.GaugeValue,
+				float64(process.HandleCount),
+				processName,
+				pid,
+				cpid,
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.CPUTimeTotal,
-			prometheus.CounterValue,
-			float64(process.PercentPrivilegedTime)*ticksToSecondsScaleFactor,
-			processName,
-			pid,
-			cpid,
-			"privileged",
-		)
+		if doCpuTimeTotal {
+			ch <- prometheus.MustNewConstMetric(
+				c.CPUTimeTotal,
+				prometheus.CounterValue,
+				float64(process.PercentPrivilegedTime)*ticksToSecondsScaleFactor,
+				processName,
+				pid,
+				cpid,
+				"privileged",
+			)
 
-		ch <- prometheus.MustNewConstMetric(
-			c.CPUTimeTotal,
-			prometheus.CounterValue,
-			float64(process.PercentUserTime)*ticksToSecondsScaleFactor,
-			processName,
-			pid,
-			cpid,
-			"user",
-		)
+			ch <- prometheus.MustNewConstMetric(
+				c.CPUTimeTotal,
+				prometheus.CounterValue,
+				float64(process.PercentUserTime)*ticksToSecondsScaleFactor,
+				processName,
+				pid,
+				cpid,
+				"user",
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.IOBytesTotal,
-			prometheus.CounterValue,
-			float64(process.IOOtherBytesPersec),
-			processName,
-			pid,
-			cpid,
-			"other",
-		)
+		if doIoBytesTotal {
+			ch <- prometheus.MustNewConstMetric(
+				c.IOBytesTotal,
+				prometheus.CounterValue,
+				float64(process.IOOtherBytesPersec),
+				processName,
+				pid,
+				cpid,
+				"other",
+			)
 
-		ch <- prometheus.MustNewConstMetric(
-			c.IOOperationsTotal,
-			prometheus.CounterValue,
-			float64(process.IOOtherOperationsPersec),
-			processName,
-			pid,
-			cpid,
-			"other",
-		)
+			ch <- prometheus.MustNewConstMetric(
+				c.IOBytesTotal,
+				prometheus.CounterValue,
+				float64(process.IOReadBytesPersec),
+				processName,
+				pid,
+				cpid,
+				"read",
+			)
 
-		ch <- prometheus.MustNewConstMetric(
-			c.IOBytesTotal,
-			prometheus.CounterValue,
-			float64(process.IOReadBytesPersec),
-			processName,
-			pid,
-			cpid,
-			"read",
-		)
+			ch <- prometheus.MustNewConstMetric(
+				c.IOBytesTotal,
+				prometheus.CounterValue,
+				float64(process.IOWriteBytesPersec),
+				processName,
+				pid,
+				cpid,
+				"write",
+			)
 
-		ch <- prometheus.MustNewConstMetric(
-			c.IOOperationsTotal,
-			prometheus.CounterValue,
-			float64(process.IOReadOperationsPersec),
-			processName,
-			pid,
-			cpid,
-			"read",
-		)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.IOBytesTotal,
-			prometheus.CounterValue,
-			float64(process.IOWriteBytesPersec),
-			processName,
-			pid,
-			cpid,
-			"write",
-		)
+		if doIoOperationsTotal {
+			ch <- prometheus.MustNewConstMetric(
+				c.IOOperationsTotal,
+				prometheus.CounterValue,
+				float64(process.IOOtherOperationsPersec),
+				processName,
+				pid,
+				cpid,
+				"other",
+			)
 
-		ch <- prometheus.MustNewConstMetric(
-			c.IOOperationsTotal,
-			prometheus.CounterValue,
-			float64(process.IOWriteOperationsPersec),
-			processName,
-			pid,
-			cpid,
-			"write",
-		)
+			ch <- prometheus.MustNewConstMetric(
+				c.IOOperationsTotal,
+				prometheus.CounterValue,
+				float64(process.IOReadOperationsPersec),
+				processName,
+				pid,
+				cpid,
+				"read",
+			)
 
-		ch <- prometheus.MustNewConstMetric(
-			c.PageFaultsTotal,
-			prometheus.CounterValue,
-			float64(process.PageFaultsPersec),
-			processName,
-			pid,
-			cpid,
-		)
+			ch <- prometheus.MustNewConstMetric(
+				c.IOOperationsTotal,
+				prometheus.CounterValue,
+				float64(process.IOWriteOperationsPersec),
+				processName,
+				pid,
+				cpid,
+				"write",
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.PageFileBytes,
-			prometheus.GaugeValue,
-			float64(process.PageFileBytes),
-			processName,
-			pid,
-			cpid,
-		)
+		if doPageFaultTotal {
+			ch <- prometheus.MustNewConstMetric(
+				c.PageFaultsTotal,
+				prometheus.CounterValue,
+				float64(process.PageFaultsPersec),
+				processName,
+				pid,
+				cpid,
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.PoolBytes,
-			prometheus.GaugeValue,
-			float64(process.PoolNonpagedBytes),
-			processName,
-			pid,
-			cpid,
-			"nonpaged",
-		)
+		if doPageFileBytes {
+			ch <- prometheus.MustNewConstMetric(
+				c.PageFileBytes,
+				prometheus.GaugeValue,
+				float64(process.PageFileBytes),
+				processName,
+				pid,
+				cpid,
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.PoolBytes,
-			prometheus.GaugeValue,
-			float64(process.PoolPagedBytes),
-			processName,
-			pid,
-			cpid,
-			"paged",
-		)
+		if doPoolBytes {
+			ch <- prometheus.MustNewConstMetric(
+				c.PoolBytes,
+				prometheus.GaugeValue,
+				float64(process.PoolNonpagedBytes),
+				processName,
+				pid,
+				cpid,
+				"nonpaged",
+			)
 
-		ch <- prometheus.MustNewConstMetric(
-			c.PriorityBase,
-			prometheus.GaugeValue,
-			float64(process.PriorityBase),
-			processName,
-			pid,
-			cpid,
-		)
+			ch <- prometheus.MustNewConstMetric(
+				c.PoolBytes,
+				prometheus.GaugeValue,
+				float64(process.PoolPagedBytes),
+				processName,
+				pid,
+				cpid,
+				"paged",
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.PrivateBytes,
-			prometheus.GaugeValue,
-			float64(process.PrivateBytes),
-			processName,
-			pid,
-			cpid,
-		)
+		if doPriorityBase {
+			ch <- prometheus.MustNewConstMetric(
+				c.PriorityBase,
+				prometheus.GaugeValue,
+				float64(process.PriorityBase),
+				processName,
+				pid,
+				cpid,
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.ThreadCount,
-			prometheus.GaugeValue,
-			float64(process.ThreadCount),
-			processName,
-			pid,
-			cpid,
-		)
+		if doPrivateBytes {
+			ch <- prometheus.MustNewConstMetric(
+				c.PrivateBytes,
+				prometheus.GaugeValue,
+				float64(process.PrivateBytes),
+				processName,
+				pid,
+				cpid,
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.VirtualBytes,
-			prometheus.GaugeValue,
-			float64(process.VirtualBytes),
-			processName,
-			pid,
-			cpid,
-		)
+		if doThreadCount {
+			ch <- prometheus.MustNewConstMetric(
+				c.ThreadCount,
+				prometheus.GaugeValue,
+				float64(process.ThreadCount),
+				processName,
+				pid,
+				cpid,
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.WorkingSet,
-			prometheus.GaugeValue,
-			float64(process.WorkingSet),
-			processName,
-			pid,
-			cpid,
-		)
+		if doVirtualBytes {
+			ch <- prometheus.MustNewConstMetric(
+				c.VirtualBytes,
+				prometheus.GaugeValue,
+				float64(process.VirtualBytes),
+				processName,
+				pid,
+				cpid,
+			)
+		}
+
+		if doWorkingSet {
+			ch <- prometheus.MustNewConstMetric(
+				c.WorkingSet,
+				prometheus.GaugeValue,
+				float64(process.WorkingSet),
+				processName,
+				pid,
+				cpid,
+			)
+		}
 	}
 
 	return nil, nil

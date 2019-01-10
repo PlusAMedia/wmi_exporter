@@ -14,12 +14,12 @@ import (
 	"golang.org/x/sys/windows/svc"
 
 	"github.com/StackExchange/wmi"
-	"github.com/martinlindhe/wmi_exporter/collector"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/version"
 	"gopkg.in/alecthomas/kingpin.v2"
+	"wmi_exporter/collector"
 )
 
 // WmiCollector implements the prometheus.Collector interface.
@@ -189,11 +189,6 @@ func main() {
 			"telemetry.path",
 			"URL path for surfacing collected metrics.",
 		).Default("/metrics").String()
-
-		processDetails = kingpin.Flag(
-			"process.details",
-			"Comma-separated list of process details. Valid when process collector is enabled",
-		).Default(defaultProcessDetails).String()
 
 		enabledCollectors = kingpin.Flag(
 			"collectors.enabled",
