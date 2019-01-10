@@ -20,7 +20,7 @@ func init() {
 }
 
 const (
-	defaultProcessDetails = "start_time,cpu_time_total,io_bytes_total, private_bytes, thread_count,virtual_bytes"
+	defaultProcessDetails = "start_time,cpu_time_total,private_bytes, thread_count,virtual_bytes"
 	// all possible values: start_time,cpu_time_total,handle_count,io_bytes_total, io_operations_total, page_fault_total, page_file_bytes,pool_bytes, priority_base,private_bytes, thread_count,virtual_bytes,working_set"
 )
 
@@ -38,7 +38,7 @@ var (
 	doStarTime          = true
 	doCpuTimeTotal      = true
 	doHandleCount       = false
-	doIoBytesTotal      = true
+	doIoBytesTotal      = false
 	doIoOperationsTotal = false
 	doPageFaultTotal    = false
 	doPageFileBytes     = false
@@ -473,6 +473,8 @@ func (c *ProcessCollector) collect(ch chan<- prometheus.Metric) (*prometheus.Des
 			)
 		}
 	}
+
+
 
 	return nil, nil
 }
