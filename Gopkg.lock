@@ -64,6 +64,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:db0057400e0f4221ff7809072b0f61a4e4fefc5911d0c7ff18603d3a904d169c"
+  name = "github.com/martinlindhe/wmi_exporter"
+  packages = ["collector"]
+  pruneopts = "NUT"
+  revision = "2766f0e3af9a7570d6b812eaf4bf262754c2d47f"
+  version = "v0.5.0"
+
+[[projects]]
   digest = "1:5985ef4caf91ece5d54817c11ea25f182697534f8ae6521eadcd628c142ac4b6"
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
@@ -161,6 +169,7 @@
   input-imports = [
     "github.com/StackExchange/wmi",
     "github.com/dimchansky/utfbom",
+    "github.com/martinlindhe/wmi_exporter/collector",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/prometheus/client_model/go",

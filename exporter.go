@@ -31,6 +31,9 @@ const (
 	defaultCollectors            = "cpu,cs,logical_disk,net,os,service,system,textfile"
 	defaultCollectorsPlaceholder = "[defaults]"
 	serviceName                  = "wmi_exporter"
+	defaultProcessDetails        = "start_time,cpu_time_total,io_bytes_total, private_bytes, thread_count,virtual_bytes,working_set"
+	// all possible values: start_time,cpu_time_total,handle_count,io_bytes_total, io_operations_total, page_fault_total, page_file_bytes,pool_bytes, priority_base,private_bytes, thread_count,virtual_bytes,working_set"
+
 )
 
 var (
@@ -176,6 +179,7 @@ func initWbem() {
 }
 
 func main() {
+	//noinspection GoUnusedVariable
 	var (
 		listenAddress = kingpin.Flag(
 			"telemetry.addr",
@@ -185,6 +189,12 @@ func main() {
 			"telemetry.path",
 			"URL path for surfacing collected metrics.",
 		).Default("/metrics").String()
+
+		processDetails = kingpin.Flag(
+			"process.details",
+			"Comma-separated list of process details. Valid when process collector is enabled",
+		).Default(defaultProcessDetails).String()
+
 		enabledCollectors = kingpin.Flag(
 			"collectors.enabled",
 			"Comma-separated list of collectors to use. Use '[defaults]' as a placeholder for all the collectors enabled by default.").
