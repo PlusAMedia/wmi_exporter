@@ -8,11 +8,9 @@ Prometheus exporter for Windows machines, using the WMI (Windows Management Inst
 ## About this fork
 This fork adds more control over process and cpu detail metrics with the purpose of reducing the amount of data/traffic. Two new parameters added:
 
---process.details="start_time,cpu_time_total,handle_count,io_bytes_total, io_operations_total, page_fault_total, page_file_bytes,pool_bytes, priority_base,private_bytes, thread_count,virtual_bytes,working_set"
-Default values: "start_time,cpu_time_total,private_bytes, thread_count,virtual_bytes"
+--process.details="start_time,cpu_time_total,handle_count,io_bytes_total, io_operations_total, page_fault_total, page_file_bytes,pool_bytes, priority_base,private_bytes, thread_count,virtual_bytes,working_set". Default values: "start_time,cpu_time_total,private_bytes, thread_count,virtual_bytes"
 
---cpu.details="cstate_seconds_total,time_total,interrupts_total,dpcs_total"
-Default value: "time_total"
+--cpu.details="cstate_seconds_total,time_total,interrupts_total,dpcs_total". Default value: "time_total"
 
 
 ## Collectors
