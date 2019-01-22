@@ -6,6 +6,7 @@
 package collector
 
 import (
+	"gopkg.in/alecthomas/kingpin.v2"
 	"strings"
 
 	"github.com/StackExchange/wmi"
@@ -15,6 +16,37 @@ import (
 
 func init() {
 	Factories["cpu"] = NewCPUCollector
+}
+
+const (
+	defaultCpuDetails = "time_total"
+	// all possible values: cstate_seconds_total, time_total, interrupts_total, dpcs_total
+)
+
+var (
+	cpuDetails = kingpin.Flag(
+		"cpu.details",
+		"Comma-separated list of cpu details. Valid only when process collector is enabled. Possible values: cstate_seconds_total, time_total, interrupts_total, dpcs_total",
+	).Default(defaultCpuDetails).String()
+
+	doTimeTotal          = true
+	doCStateSecondsTotal = false
+	doInterruptsTotal    = false
+	doDPCsTotals         = false
+)
+
+func GetCpuDetailFlags() {
+	var detailsArray = strings.Split(*cpuDetails, ",")
+	set := make(map[string]struct{}, len(detailsArray))
+	for _, item := range detailsArray {
+		set[item] = struct{}{}
+	}
+
+	_, doTimeTotal = set["time_total"]
+	_, doDPCsTotals = set["dpcs_total"]
+	_, doInterruptsTotal = set["interrupts_total"]
+	_, doCStateSecondsTotal = set["cstate_seconds_total"]
+
 }
 
 // A CPUCollector is a Prometheus collector for WMI Win32_PerfRawData_PerfOS_Processor metrics
@@ -27,6 +59,11 @@ type CPUCollector struct {
 
 func NewCPUCollector() (Collector, error) {
 	const subsystem = "cpu"
+
+	if *cpuDetails != "" {
+		GetCpuDetailFlags()
+	}
+
 	return &CPUCollector{
 		CStateSecondsTotal: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, subsystem, "cstate_seconds_total"),
@@ -146,68 +183,78 @@ func (c *CPUCollector) collect(ch chan<- prometheus.Metric) (*prometheus.Desc, e
 			socket, core,
 		)*/
 
-		ch <- prometheus.MustNewConstMetric(
-			c.CStateSecondsTotal,
-			prometheus.GaugeValue,
-			float64(data.PercentC1Time)*ticksToSecondsScaleFactor,
-			core, "c1",
-		)
-		ch <- prometheus.MustNewConstMetric(
-			c.CStateSecondsTotal,
-			prometheus.GaugeValue,
-			float64(data.PercentC2Time)*ticksToSecondsScaleFactor,
-			core, "c2",
-		)
-		ch <- prometheus.MustNewConstMetric(
-			c.CStateSecondsTotal,
-			prometheus.GaugeValue,
-			float64(data.PercentC3Time)*ticksToSecondsScaleFactor,
-			core, "c3",
-		)
+		if doCStateSecondsTotal {
+			ch <- prometheus.MustNewConstMetric(
+				c.CStateSecondsTotal,
+				prometheus.GaugeValue,
+				float64(data.PercentC1Time)*ticksToSecondsScaleFactor,
+				core, "c1",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.CStateSecondsTotal,
+				prometheus.GaugeValue,
+				float64(data.PercentC2Time)*ticksToSecondsScaleFactor,
+				core, "c2",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.CStateSecondsTotal,
+				prometheus.GaugeValue,
+				float64(data.PercentC3Time)*ticksToSecondsScaleFactor,
+				core, "c3",
+			)
+		}
 
-		ch <- prometheus.MustNewConstMetric(
-			c.TimeTotal,
-			prometheus.GaugeValue,
-			float64(data.PercentIdleTime)*ticksToSecondsScaleFactor,
-			core, "idle",
-		)
-		ch <- prometheus.MustNewConstMetric(
-			c.TimeTotal,
-			prometheus.GaugeValue,
-			float64(data.PercentInterruptTime)*ticksToSecondsScaleFactor,
-			core, "interrupt",
-		)
-		ch <- prometheus.MustNewConstMetric(
-			c.TimeTotal,
-			prometheus.GaugeValue,
-			float64(data.PercentDPCTime)*ticksToSecondsScaleFactor,
-			core, "dpc",
-		)
-		ch <- prometheus.MustNewConstMetric(
-			c.TimeTotal,
-			prometheus.GaugeValue,
-			float64(data.PercentPrivilegedTime)*ticksToSecondsScaleFactor,
-			core, "privileged",
-		)
-		ch <- prometheus.MustNewConstMetric(
-			c.TimeTotal,
-			prometheus.GaugeValue,
-			float64(data.PercentUserTime)*ticksToSecondsScaleFactor,
-			core, "user",
-		)
+		if doTimeTotal {
 
-		ch <- prometheus.MustNewConstMetric(
-			c.InterruptsTotal,
-			prometheus.CounterValue,
-			float64(data.InterruptsPersec),
-			core,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			c.DPCsTotal,
-			prometheus.CounterValue,
-			float64(data.DPCsQueuedPersec),
-			core,
-		)
+			ch <- prometheus.MustNewConstMetric(
+				c.TimeTotal,
+				prometheus.GaugeValue,
+				float64(data.PercentIdleTime)*ticksToSecondsScaleFactor,
+				core, "idle",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.TimeTotal,
+				prometheus.GaugeValue,
+				float64(data.PercentInterruptTime)*ticksToSecondsScaleFactor,
+				core, "interrupt",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.TimeTotal,
+				prometheus.GaugeValue,
+				float64(data.PercentDPCTime)*ticksToSecondsScaleFactor,
+				core, "dpc",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.TimeTotal,
+				prometheus.GaugeValue,
+				float64(data.PercentPrivilegedTime)*ticksToSecondsScaleFactor,
+				core, "privileged",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.TimeTotal,
+				prometheus.GaugeValue,
+				float64(data.PercentUserTime)*ticksToSecondsScaleFactor,
+				core, "user",
+			)
+		}
+
+		if doInterruptsTotal {
+			ch <- prometheus.MustNewConstMetric(
+				c.InterruptsTotal,
+				prometheus.CounterValue,
+				float64(data.InterruptsPersec),
+				core,
+			)
+		}
+
+		if doDPCsTotals {
+			ch <- prometheus.MustNewConstMetric(
+				c.DPCsTotal,
+				prometheus.CounterValue,
+				float64(data.DPCsQueuedPersec),
+				core,
+			)
+		}
 	}
 
 	return nil, nil
